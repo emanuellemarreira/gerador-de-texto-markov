@@ -5,9 +5,7 @@ from collections import defaultdict
 import random
 
 def pre_processamento(text):
-    text = text.lower()
     text = re.sub(r'\s+', ' ', text)
-    text = text.replace(",", "")
     text = text.replace("(", "")
     text = text.replace(")", "")
     return text.split()
