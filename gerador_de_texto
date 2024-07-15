@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+import re
+from collections import defaultdict
+import random
+
+def pre_processamento(text):
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    text = text.replace(",", "")
+    text = text.replace("(", "")
+    text = text.replace(")", "")
+    return text.split()
+
+def fazer_matriz(words):
+    linhas = words
+    colunas = words
+    matriz_trans = defaultdict(lambda: defaultdict(int))
+    for linha in linhas:
+        for coluna in colunas:
+            matriz_trans[linha][coluna] = 0
+    return matriz_trans
+
+def transicionar(words, matriz_transicao):
+    for c in range(0, len(words)-1):
+        matriz_transicao[words[c+1]][words[c]] += 1
+
+def gerar_novo_texto(words, probabilidades_gerador, matriz_limite):
+    texto = []
+    estado = random.randint(0, len(words) - 1)
+    linha = words[estado]
+    texto.append(linha)
+
+    for prob in probabilidades_gerador:
+        prob = float(prob)
+        acumulador = 0.0
+        for coluna in matriz_limite.columns:
+            acumulador += matriz_limite.loc[linha, coluna]
+            if acumulador >= prob:
+                texto.append(coluna)
+                linha = coluna
+                break
+    
+    return ' '.join(texto)
+
+if __name__ == "__main__":
+    text = open(r'combo_pop.txt').read()
+    words = pre_processamento(text)
+    matriz_transicao = fazer_matriz(words)
+    transicionar(words, matriz_transicao)
+    df_matriz_transicao = pd.DataFrame(matriz_transicao).fillna(0)
+    df_matriz_transicao.to_csv('matriz_transicao.csv')
+    matriz_probabilidade_transicao = df_matriz_transicao.div(df_matriz_transicao.sum(axis=1), axis=0).fillna(0)
+    matriz_probabilidade_transicao.to_csv('matriz_probabilidade_transicao.csv')
+    matriz_limite = np.linalg.matrix_power(matriz_probabilidade_transicao.values, 100)
+    df_matriz_limite = pd.DataFrame(matriz_limite, 
+                                    columns=df_matriz_transicao.columns, 
+                                    index=df_matriz_transicao.index)
+    df_matriz_limite.round(3).to_csv('matriz_limite.csv')
+
+    probabilidades_gerador = open(r'output/probabilidades_gerador.txt').read().split()
+
+    novo_texto = gerar_novo_texto(words, probabilidades_gerador, df_matriz_limite)
+    
+    with open('musica_gerada.txt', 'w') as f:
+        f.write(novo_texto)
